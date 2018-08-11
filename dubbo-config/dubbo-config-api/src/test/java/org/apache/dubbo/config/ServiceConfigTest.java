@@ -36,6 +36,9 @@ import org.junit.Test;
 import org.mockito.Mockito;
 
 import java.util.Collections;
+import java.util.Timer;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import static org.apache.dubbo.common.Constants.GENERIC_SERIALIZATION_BEAN;
 import static org.apache.dubbo.common.Constants.GENERIC_SERIALIZATION_DEFAULT;
@@ -201,5 +204,11 @@ public class ServiceConfigTest {
         service.setInterface(Greeting.class);
         service.setVersion("1.0.0");
         assertThat(service.getUniqueServiceName(), equalTo("dubbo/" + Greeting.class.getName() + ":1.0.0"));
+    }
+
+    @Test
+    public void test() throws Exception {
+        Timer timer = new Timer();
+        Executors.newScheduledThreadPool(2);
     }
 }

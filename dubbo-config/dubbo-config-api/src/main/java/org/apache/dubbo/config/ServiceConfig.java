@@ -194,10 +194,14 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
 
     public synchronized void export() {
         if (provider != null) {
+
+            //优先本身的属性设置
             if (export == null) {
+                //通过provider 的export判断是否可以暴露服务
                 export = provider.getExport();
             }
             if (delay == null) {
+                //通过provider 的delay判断是否需要延期
                 delay = provider.getDelay();
             }
         }
@@ -206,6 +210,7 @@ public class ServiceConfig<T> extends AbstractServiceConfig {
         }
 
         if (delay != null && delay > 0) {
+            //不用timer 的原因：https://www.cnblogs.com/jzssuanfa/p/6958957.html
             delayExportExecutor.schedule(new Runnable() {
                 @Override
                 public void run() {

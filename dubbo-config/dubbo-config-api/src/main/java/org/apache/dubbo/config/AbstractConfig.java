@@ -63,6 +63,7 @@ public abstract class AbstractConfig implements Serializable {
     private static final String[] SUFFIXES = new String[]{"Config", "Bean"};
 
     static {
+
         legacyProperties.put("dubbo.protocol.name", "dubbo.service.protocol");
         legacyProperties.put("dubbo.protocol.host", "dubbo.service.server.host");
         legacyProperties.put("dubbo.protocol.port", "dubbo.service.server.port");
@@ -89,6 +90,7 @@ public abstract class AbstractConfig implements Serializable {
         return value;
     }
 
+    //那顺序其实是config已经生成（通过xml），如果这时候有-D则覆盖，再判断config getter对应的属性是否赋值，没有则使用properties中的值
     protected static void appendProperties(AbstractConfig config) {
         if (config == null) {
             return;
@@ -129,14 +131,14 @@ public abstract class AbstractConfig implements Serializable {
                             }
                         }
                         if (getter != null) {
-                            if (getter.invoke(config) == null) {
+                            if (getter.invoke(config) == null) {//xml中没有设置属性值，就读取
                                 if (config.getId() != null && config.getId().length() > 0) {
                                     value = ConfigUtils.getProperty(prefix + config.getId() + "." + property);
                                 }
                                 if (value == null || value.length() == 0) {
                                     value = ConfigUtils.getProperty(prefix + property);
                                 }
-                                if (value == null || value.length() == 0) {
+                                if (value == null || value.length() == 0) {//获取另外一种名称
                                     String legacyKey = legacyProperties.get(prefix + property);
                                     if (legacyKey != null && legacyKey.length() > 0) {
                                         value = convertLegacyValue(legacyKey, ConfigUtils.getProperty(legacyKey));

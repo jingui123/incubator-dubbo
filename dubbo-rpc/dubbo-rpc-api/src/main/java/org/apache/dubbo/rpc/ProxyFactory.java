@@ -22,6 +22,7 @@ import org.apache.dubbo.common.extension.Adaptive;
 import org.apache.dubbo.common.extension.SPI;
 
 /**
+ *
  * ProxyFactory. (API/SPI, Singleton, ThreadSafe)
  */
 @SPI("javassist")

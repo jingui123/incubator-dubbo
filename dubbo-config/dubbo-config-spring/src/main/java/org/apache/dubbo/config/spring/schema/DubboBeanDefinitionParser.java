@@ -62,8 +62,11 @@ import java.util.regex.Pattern;
 public class DubboBeanDefinitionParser implements BeanDefinitionParser {
 
     private static final Logger logger = LoggerFactory.getLogger(DubboBeanDefinitionParser.class);
+    //匹配组与版本
     private static final Pattern GROUP_AND_VERION = Pattern.compile("^[\\-.0-9_a-zA-Z]+(\\:[\\-.0-9_a-zA-Z]+)?$");
+    //待解析bean
     private final Class<?> beanClass;
+    //是否需要在 Bean 对象的编号( id ) 不存在时，自动生成编号。无需被其他应用引用的配置对象，无需自动生成编号。
     private final boolean required;
 
     public DubboBeanDefinitionParser(Class<?> beanClass, boolean required) {
@@ -75,9 +78,12 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
     private static BeanDefinition parse(Element element, ParserContext parserContext, Class<?> beanClass, boolean required) {
         RootBeanDefinition beanDefinition = new RootBeanDefinition();
         beanDefinition.setBeanClass(beanClass);
+        //是否延迟初始化
         beanDefinition.setLazyInit(false);
         String id = element.getAttribute("id");
+        //id==null&&required==true 生成
         if ((id == null || id.length() == 0) && required) {
+            //name的值> 特殊规则 >bean 的名称
             String generatedBeanName = element.getAttribute("name");
             if (generatedBeanName == null || generatedBeanName.length() == 0) {
                 if (ProtocolConfig.class.equals(beanClass)) {
@@ -91,6 +97,7 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
             }
             id = generatedBeanName;
             int counter = 2;
+            //如果有相同元素在 id = generatedBeanName+（count++），通过自增，避免冲突
             while (parserContext.getRegistry().containsBeanDefinition(id)) {
                 id = generatedBeanName + (counter++);
             }
@@ -99,10 +106,17 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
             if (parserContext.getRegistry().containsBeanDefinition(id)) {
                 throw new IllegalStateException("Duplicate spring bean id " + id);
             }
+            //添加xml中解析的元素到注册表中
             parserContext.getRegistry().registerBeanDefinition(id, beanDefinition);
+            //设置beanDefinition的id值
             beanDefinition.getPropertyValues().addPropertyValue("id", id);
         }
+        //处理 协议config
+
         if (ProtocolConfig.class.equals(beanClass)) {
+            // <dubbo:service interface="com.alibaba.dubbo.demo.DemoService" protocol="dubbo" ref="demoService"/>
+            // <dubbo:protocol id="dubbo" name="dubbo" port="20880"/>
+            //顺序处理
             for (String name : parserContext.getRegistry().getBeanDefinitionNames()) {
                 BeanDefinition definition = parserContext.getRegistry().getBeanDefinition(name);
                 PropertyValue property = definition.getPropertyValues().getPropertyValue("protocol");
@@ -114,23 +128,31 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
                 }
             }
         } else if (ServiceBean.class.equals(beanClass)) {
+            //<dubbo:service id="sa" interface="com.alibaba.dubbo.demo.DemoService" class="com.alibaba.dubbo.demo.provider.DemoServiceImpl" >
             String className = element.getAttribute("class");
             if (className != null && className.length() > 0) {
+                //创建service的实现类 的RootBeanDefinition 对象，相当于内嵌 <bean class="com.alibaba.dubbo.demo.provider.DemoServiceImpl"></bean>
                 RootBeanDefinition classDefinition = new RootBeanDefinition();
                 classDefinition.setBeanClass(ReflectUtils.forName(className));
                 classDefinition.setLazyInit(false);
+                // 解析 Service Bean 对象的属性们
                 parseProperties(element.getChildNodes(), classDefinition);
+                // 设置 `<dubbo:service ref="" />` 属性,相当于  <bean class="com.alibaba.dubbo.demo.provider.DemoServiceImpl"></bean> 然后<dubbo:service ref="" /> ==<dubbo:service class="com.alibaba.dubbo.demo.provider.DemoServiceImpl" >
+                //BeanDefinitionHolder beanDefinition的持有者
                 beanDefinition.getPropertyValues().addPropertyValue("ref", new BeanDefinitionHolder(classDefinition, id + "Impl"));
             }
         } else if (ProviderConfig.class.equals(beanClass)) {
+            // 解析 `<dubbo:provider />` 的内嵌子元素 `<dubbo:service />`
             parseNested(element, parserContext, ServiceBean.class, true, "service", "provider", id, beanDefinition);
         } else if (ConsumerConfig.class.equals(beanClass)) {
+            // 解析 `<dubbo:consumer />` 的内嵌子元素 `<dubbo:reference />`
             parseNested(element, parserContext, ReferenceBean.class, false, "reference", "consumer", id, beanDefinition);
         }
         Set<String> props = new HashSet<String>();
         ManagedMap parameters = null;
         for (Method setter : beanClass.getMethods()) {
             String name = setter.getName();
+            //处理所有的setter方法
             if (name.length() > 3 && name.startsWith("set")
                     && Modifier.isPublic(setter.getModifiers())
                     && setter.getParameterTypes().length == 1) {
@@ -152,8 +174,10 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
                     continue;
                 }
                 if ("parameters".equals(property)) {
+                    //解析有内嵌<dubbo:parameters>的元素
                     parameters = parseParameters(element.getChildNodes(), beanDefinition);
                 } else if ("methods".equals(property)) {
+                    //解析有内嵌<dubbo:methods>的元素
                     parseMethods(id, element.getChildNodes(), beanDefinition, parserContext);
                 } else if ("arguments".equals(property)) {
                     parseArguments(id, element.getChildNodes(), beanDefinition, parserContext);
@@ -162,18 +186,23 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
                     if (value != null) {
                         value = value.trim();
                         if (value.length() > 0) {
+                            // 不想注册到注册中心的情况，即 `registry=N/A` 。
                             if ("registry".equals(property) && RegistryConfig.NO_AVAILABLE.equalsIgnoreCase(value)) {
                                 RegistryConfig registryConfig = new RegistryConfig();
                                 registryConfig.setAddress(RegistryConfig.NO_AVAILABLE);
                                 beanDefinition.getPropertyValues().addPropertyValue(property, registryConfig);
                             } else if ("registry".equals(property) && value.indexOf(',') != -1) {
+                                // 多注册中心的情况
                                 parseMultiRef("registries", value, beanDefinition, parserContext);
                             } else if ("provider".equals(property) && value.indexOf(',') != -1) {
+                                // 多服务提供者的情况
                                 parseMultiRef("providers", value, beanDefinition, parserContext);
                             } else if ("protocol".equals(property) && value.indexOf(',') != -1) {
+                                // 多协议的情况
                                 parseMultiRef("protocols", value, beanDefinition, parserContext);
                             } else {
                                 Object reference;
+                                // 处理属性类型为基本属性的情况
                                 if (isPrimitive(type)) {
                                     if ("async".equals(property) && "false".equals(value)
                                             || "timeout".equals(property) && "0".equals(value)
@@ -189,6 +218,7 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
                                         && ExtensionLoader.getExtensionLoader(Protocol.class).hasExtension(value)
                                         && (!parserContext.getRegistry().containsBeanDefinition(value)
                                         || !ProtocolConfig.class.getName().equals(parserContext.getRegistry().getBeanDefinition(value).getBeanClassName()))) {
+                                    //处理在 `<dubbo:provider />` 或者 `<dubbo:service />` 上定义了 `protocol` 属性的 兼容性。
                                     if ("dubbo:provider".equals(element.getTagName())) {
                                         logger.warn("Recommended replace <dubbo:provider protocol=\"" + value + "\" ... /> to <dubbo:protocol name=\"" + value + "\" ... />");
                                     }
@@ -197,6 +227,7 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
                                     protocol.setName(value);
                                     reference = protocol;
                                 } else if ("onreturn".equals(property)) {
+                                    // 处理 `onreturn` 属性
                                     int index = value.lastIndexOf(".");
                                     String returnRef = value.substring(0, index);
                                     String returnMethod = value.substring(index + 1);
@@ -215,6 +246,7 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
                                     reference = new RuntimeBeanReference(invokeRef);
                                     beanDefinition.getPropertyValues().addPropertyValue("oninvokeMethod", invokeRefMethod);
                                 } else {
+                                    //service 中的ref 必须是单列
                                     if ("ref".equals(property) && parserContext.getRegistry().containsBeanDefinition(value)) {
                                         BeanDefinition refBean = parserContext.getRegistry().getBeanDefinition(value);
                                         if (!refBean.isSingleton()) {
@@ -230,6 +262,7 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
                 }
             }
         }
+        /// 将 XML 元素，未在上面遍历到的属性，添加到 `parameters` 集合中。目前测试下来，不存在这样的情况。
         NamedNodeMap attributes = element.getAttributes();
         int len = attributes.getLength();
         for (int i = 0; i < len; i++) {
@@ -273,6 +306,20 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
         beanDefinition.getPropertyValues().addPropertyValue(property, list);
     }
 
+    /**
+     *
+     1: /**
+     2:  * 解析内嵌的指向的子 XML 元素
+     3:  *
+     4:  * @param element 父 XML 元素
+     5:  * @param parserContext Spring 解析上下文
+     6:  * @param beanClass 内嵌解析子元素的 Bean 的类
+     7:  * @param required 是否需要 Bean 的 `id` 属性
+     8:  * @param tag 标签
+     9:  * @param property 父 Bean 对象在子元素中的属性名
+     10:  * @param ref 指向
+     11:  * @param beanDefinition 父 Bean 定义对象
+     12:  */
     private static void parseNested(Element element, ParserContext parserContext, Class<?> beanClass, boolean required, String tag, String property, String ref, BeanDefinition beanDefinition) {
         NodeList nodeList = element.getChildNodes();
         if (nodeList != null && nodeList.getLength() > 0) {
@@ -299,6 +346,13 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
         }
     }
 
+    /**
+     * <bean id="demoDAO" class="com.alibaba.dubbo.demo.provider.DemoDAO" />
+     *
+     * <dubbo:service id="sa" interface="com.alibaba.dubbo.demo.DemoService"  class="com.alibaba.dubbo.demo.provider.DemoServiceImpl">
+     *     <property name="demoDAO" ref="demoDAO" />
+     * </dubbo:service>
+     */
     private static void parseProperties(NodeList nodeList, RootBeanDefinition beanDefinition) {
         if (nodeList != null && nodeList.getLength() > 0) {
             for (int i = 0; i < nodeList.getLength(); i++) {
@@ -311,8 +365,10 @@ public class DubboBeanDefinitionParser implements BeanDefinitionParser {
                             String value = ((Element) node).getAttribute("value");
                             String ref = ((Element) node).getAttribute("ref");
                             if (value != null && value.length() > 0) {
+                                //设置属性名称和对应的值
                                 beanDefinition.getPropertyValues().addPropertyValue(name, value);
                             } else if (ref != null && ref.length() > 0) {
+                                //设置属性名称和对应的应用名称（RuntimeBeanReference）
                                 beanDefinition.getPropertyValues().addPropertyValue(name, new RuntimeBeanReference(ref));
                             } else {
                                 throw new UnsupportedOperationException("Unsupported <property name=\"" + name + "\"> sub tag, Only supported <property name=\"" + name + "\" ref=\"...\" /> or <property name=\"" + name + "\" value=\"...\" />");

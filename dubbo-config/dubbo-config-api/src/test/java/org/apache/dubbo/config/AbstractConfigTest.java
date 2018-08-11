@@ -19,6 +19,7 @@ package org.apache.dubbo.config;
 import junit.framework.TestCase;
 import org.apache.dubbo.common.Constants;
 import org.apache.dubbo.common.utils.ConfigUtils;
+import org.apache.dubbo.config.api.DemoService;
 import org.apache.dubbo.config.api.Greeting;
 import org.apache.dubbo.config.support.Parameter;
 import org.hamcrest.Matchers;
@@ -28,10 +29,7 @@ import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
+import java.util.*;
 
 import static org.junit.Assert.assertThat;
 
@@ -513,5 +511,20 @@ public class AbstractConfigTest {
         public void setParameters(Map<String, String> parameters) {
             this.parameters = parameters;
         }
+    }
+
+    @Test
+    public void testApplicationConfig(){
+        ApplicationConfig applicationConfig = new ApplicationConfig();
+        applicationConfig.setName("zjh");
+        RegistryConfig registryConfig = new RegistryConfig();
+        registryConfig.setServer("172.29.64.38:2181,172.29.64.39:2181,172.29.64.37:2181");
+        registryConfig.setProtocol("zookeeper");
+        ReferenceConfig<DemoService> referenceConfig = new ReferenceConfig<DemoService>();
+        referenceConfig.setInterface("com.bkjk.platform.detail.api.AccountInfoApi");
+        referenceConfig.setApplication(applicationConfig);
+        referenceConfig.setRegistry(registryConfig);
+        DemoService demoService = referenceConfig.get();
+
     }
 }
