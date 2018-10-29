@@ -62,7 +62,9 @@ public class AbortPolicyWithReport extends ThreadPoolExecutor.AbortPolicy {
                 e.getTaskCount(), e.getCompletedTaskCount(), e.isShutdown(), e.isTerminated(), e.isTerminating(),
                 url.getProtocol(), url.getIp(), url.getPort());
         logger.warn(msg);
+        // 打印 JStack ，分析线程状态。
         dumpJStack();
+        // 抛出 RejectedExecutionException 异常
         throw new RejectedExecutionException(msg);
     }
 
@@ -70,6 +72,7 @@ public class AbortPolicyWithReport extends ThreadPoolExecutor.AbortPolicy {
         long now = System.currentTimeMillis();
 
         //dump every 10 minutes
+        // 每 10 分钟，打印一次。
         if (now - lastPrintTime < 10 * 60 * 1000) {
             return;
         }
@@ -77,7 +80,7 @@ public class AbortPolicyWithReport extends ThreadPoolExecutor.AbortPolicy {
         if (!guard.tryAcquire()) {
             return;
         }
-
+        // 创建线程池，后台执行打印 JStack
         Executors.newSingleThreadExecutor().execute(new Runnable() {
             @Override
             public void run() {
@@ -97,11 +100,14 @@ public class AbortPolicyWithReport extends ThreadPoolExecutor.AbortPolicy {
                 String dateStr = sdf.format(new Date());
                 FileOutputStream jstackStream = null;
                 try {
+                    // 获得输出流
                     jstackStream = new FileOutputStream(new File(dumpPath, "Dubbo_JStack.log" + "." + dateStr));
+                    // 打印 JStack
                     JVMUtil.jstack(jstackStream);
                 } catch (Throwable t) {
                     logger.error("dump jstack error", t);
                 } finally {
+                    // 释放信号量
                     guard.release();
                     if (jstackStream != null) {
                         try {
@@ -111,7 +117,7 @@ public class AbortPolicyWithReport extends ThreadPoolExecutor.AbortPolicy {
                         }
                     }
                 }
-
+                // 记录最后打印时间
                 lastPrintTime = System.currentTimeMillis();
             }
         });

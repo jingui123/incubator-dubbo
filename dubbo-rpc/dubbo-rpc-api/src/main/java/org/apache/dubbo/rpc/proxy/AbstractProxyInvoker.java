@@ -32,7 +32,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * InvokerWrapper
+ * InvokerWrapper,服务提供者使用
  */
 public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
     Logger logger = LoggerFactory.getLogger(AbstractProxyInvoker.class);
@@ -80,8 +80,10 @@ public abstract class AbstractProxyInvoker<T> implements Invoker<T> {
     // TODO Unified to AsyncResult?
     @Override
     public Result invoke(Invocation invocation) throws RpcException {
+        //RpcContext 设置的 KV 对，在完成下面一次远程调用会被清空，即多次远程调用要多次设置。
         RpcContext rpcContext = RpcContext.getContext();
         try {
+
             Object obj = doInvoke(proxy, invocation.getMethodName(), invocation.getParameterTypes(), invocation.getArguments());
             if (RpcUtils.isFutureReturnType(invocation)) {
                 return new AsyncRpcResult((CompletableFuture<Object>) obj);

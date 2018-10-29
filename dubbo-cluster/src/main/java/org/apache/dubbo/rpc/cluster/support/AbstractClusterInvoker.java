@@ -47,10 +47,17 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
             .getLogger(AbstractClusterInvoker.class);
     protected final Directory<T> directory;
 
+    /**
+     * 集群时，是否排除非可用的invoker
+     */
     protected final boolean availablecheck;
 
     private AtomicBoolean destroyed = new AtomicBoolean(false);
 
+    /**
+     * 粘连用于有连接的服务，尽可能让客户端总是向同一个提供者发起调用，除非提供者挂了，再连接一台
+     * 自动开启延迟连接，以减少长连接数量
+     */
     private volatile Invoker<T> stickyInvoker = null;
 
     public AbstractClusterInvoker(Directory<T> directory) {
@@ -115,10 +122,12 @@ public abstract class AbstractClusterInvoker<T> implements Invoker<T> {
         boolean sticky = invokers.get(0).getUrl().getMethodParameter(methodName, Constants.CLUSTER_STICKY_KEY, Constants.DEFAULT_CLUSTER_STICKY);
         {
             //ignore overloaded method
+            //若stickyInvoker 不存在 invokers中，且不再候选中则将stickyInvoker 置空
             if (stickyInvoker != null && !invokers.contains(stickyInvoker)) {
                 stickyInvoker = null;
             }
             //ignore concurrency problem
+            //若开启连接的特性，且stickyInvoker 不存在于selected，则返回stickyInvoker，为什么
             if (sticky && stickyInvoker != null && (selected == null || !selected.contains(stickyInvoker))) {
                 if (availablecheck && stickyInvoker.isAvailable()) {
                     return stickyInvoker;

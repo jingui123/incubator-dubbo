@@ -49,6 +49,7 @@ public class UrlUtils {
             }
         }
         String defaultProtocol = defaults == null ? null : defaults.get("protocol");
+        //默认dubbo协议
         if (defaultProtocol == null || defaultProtocol.length() == 0) {
             defaultProtocol = "dubbo";
         }

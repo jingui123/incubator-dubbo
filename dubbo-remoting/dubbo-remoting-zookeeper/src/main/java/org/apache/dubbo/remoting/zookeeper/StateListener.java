@@ -16,6 +16,9 @@
  */
 package org.apache.dubbo.remoting.zookeeper;
 
+/**
+ * 监听状态
+ */
 public interface StateListener {
 
     int DISCONNECTED = 0;

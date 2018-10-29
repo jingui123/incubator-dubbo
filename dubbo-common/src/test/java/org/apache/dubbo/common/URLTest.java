@@ -19,11 +19,13 @@ package org.apache.dubbo.common;
 import org.apache.dubbo.common.utils.CollectionUtils;
 
 import org.junit.Test;
+import org.junit.rules.Stopwatch;
 
 import java.io.File;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Executors;
+import java.util.concurrent.SynchronousQueue;
 
 import static org.hamcrest.CoreMatchers.anyOf;
 import static org.hamcrest.CoreMatchers.equalTo;
@@ -277,6 +279,21 @@ public class URLTest {
         URL url1 = URL.valueOf("dubbo://admin:hello1234@10.20.130.230:20880/context/path?version=1.0.0&application=morgan");
         assertEquals("10.20.130.230:20880", url1.getAddress());
     }
+
+
+
+    @Test
+    public void test_getSet() throws Exception {
+
+        BlockingQueue<String> blockingQueue = new SynchronousQueue();
+        blockingQueue.put("123");
+        blockingQueue.put("456");
+        Executors.newCachedThreadPool();
+
+
+
+    }
+
 
     @Test
     public void test_getAbsolutePath() throws Exception {

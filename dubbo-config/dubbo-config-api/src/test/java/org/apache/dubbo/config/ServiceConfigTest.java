@@ -211,4 +211,29 @@ public class ServiceConfigTest {
         Timer timer = new Timer();
         Executors.newScheduledThreadPool(2);
     }
+
+    @Test
+    public void testServiceConfig(){
+        DemoService demoService =new DemoServiceImpl();
+        //当前应用配置
+        ApplicationConfig applicationConfig = new ApplicationConfig();
+        applicationConfig.setName("service-config");
+        //registry 配置
+        RegistryConfig registryConfig = new RegistryConfig();
+        registryConfig.setAddress("127.0.0.1:2181");
+        registryConfig.setProtocol("zookeeper");
+
+        ProtocolConfig protocolConfig = new ProtocolConfig();
+        protocolConfig.setName("dubbo");
+        protocolConfig.setPort(20880);
+        //线程池，序列化，codec都在这里配置
+        protocolConfig.setThreads(200);
+        ServiceConfig<DemoService> serviceConfig = new ServiceConfig<>();
+        serviceConfig.setApplication(applicationConfig);
+        serviceConfig.setRegistry(registryConfig);
+        serviceConfig.setInterface(DemoService.class);
+        serviceConfig.setProtocol(protocolConfig);
+        serviceConfig.setRef(demoService);
+        serviceConfig.export();
+    }
 }

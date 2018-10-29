@@ -18,6 +18,7 @@
 package org.apache.dubbo.config;
 
 import org.apache.dubbo.common.Constants;
+import org.apache.dubbo.config.api.DemoService;
 import org.junit.Test;
 
 import java.util.Collections;
@@ -174,5 +175,22 @@ public class RegistryConfigTest {
         RegistryConfig registry = new RegistryConfig();
         registry.setDefault(true);
         assertThat(registry.isDefault(), is(true));
+    }
+    @Test
+    public void testRegistry() throws Exception {
+        ApplicationConfig applicationConfig = new ApplicationConfig();
+        applicationConfig.setName("zjh");
+        RegistryConfig registryConfig = new RegistryConfig();
+        registryConfig.setProtocol("zookeeper");
+        registryConfig.setAddress("127.0.0.1:2181");
+
+
+        ReferenceConfig<DemoService> referenceConfig = new ReferenceConfig();
+        referenceConfig.setApplication(applicationConfig);
+        referenceConfig.setRegistry(registryConfig);
+        referenceConfig.setProtocol("dubbo");
+        referenceConfig.setInterface(DemoService.class);
+        DemoService demoService = referenceConfig.get();
+        demoService.sayName("zjh");
     }
 }
